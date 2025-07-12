@@ -12,7 +12,7 @@ jobs:
     steps:
     - name: Check out code
       uses: actions/checkout@v4
-      
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
@@ -26,7 +26,7 @@ jobs:
     - name: Build and push image
       uses: docker/build-push-action@v5
       with:
-        context: .
+        context: /the_block/server
         push: true
         tags: |
           ghcr.io/${{ github.repository_owner }}/the_block:${{ github.sha }}
