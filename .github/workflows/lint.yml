@@ -1,0 +1,23 @@
+name: "Lint"
+on:
+  push:
+  pull_request:
+concurrency:
+  group: ${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: true
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: linter
+        id: lint
+        uses: oxsecurity/megalinter/flavors/terraform@v8.7.0
+        env:
+          VALIDATE_ALL_CODEBASE: true
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ENABLE_LINTERS: BASH_EXEC,BASH_SHELLCHECK,BASH_SHFMT,JSON_PRETTIER,MARKDOWN_MARKDOWNLINT,YAML_YAMLLINT,ACTION_ACTIONLINT,DOCKERFILE_HADOLINT,KUBERNETES_KUBECONFORM,KUBERNETES_HELM,COPYPASTE_JSCPD,REPOSITORY_GIT_DIFF,REPOSITORY_GITLEAKS,REPOSITORY_SEMGREP,REPOSITORY_SYFT,SPELL_MISSPELL,REPOSITORY_CHECKOV
+          REPOSITORY_CHECKOV_DISABLE_ERRORS: true
+          SPELL_MISSPELL_DISABLE_ERRORS: true
+          YAML_YAMLLINT_RULES_PATH: .github/
