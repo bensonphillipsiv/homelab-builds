@@ -17,12 +17,12 @@ def callService(service, **extra):
     print("Calling Home Assistant service: %s", service)
     try:
         client.trigger_service(domain, action, **kw)
-        # threading.Thread(
-        #     target=client.trigger_service,
-        #     args=(domain, action),
-        #     kwargs=kw,
-        #     daemon=True
-        # ).start()
+            # threading.Thread(
+            #     target=client.trigger_service,
+            #     args=(domain, action),
+            #     kwargs=kw,
+            #     daemon=True
+            # ).start()
         return True
     except Exception:
         log.exception("Unexpected HA error calling %s", service)
