@@ -10,6 +10,7 @@ ROTATION_COUNT_MAX_N = 10
 class Block:
     def __init__(self):
         self.navi_json = json.loads(os.getenv("NAVI_JSON"))
+        self.scene_json = json.loads(os.getenv("SCENE_JSON"))
         self.menu = "menu.main"
         self.position = 'z+'
         self.last_position = 'z+'
@@ -33,6 +34,9 @@ class Block:
         if position is None:
             position = self.position
         return self.navi_json.get(self.menu, {}).get(position).split('.')[0]
+    
+    def getScene(self, scene):
+        return self.scene_json.get(scene)
     
     def setRotationCount(self, val):
         if val == 0 and self.rotation_count != 0:
@@ -70,10 +74,14 @@ block = Block()
 def determinePosition(position):
     service = block.getService(position)
     domain = block.getDomain(position)
+
     if len(service.split('.')) == 3:
         homeassistant.callService(service)
     elif domain == 'scene':
         print(f"Scene selected: {service}")
+        determineScene(service)
+    elif domain == 'menu':
+        print(f"Menu selected: {service}")
     block.setPosition(position)
 
 def determineRotation(value):
@@ -116,6 +124,14 @@ def onMessage(client, userdata, message):
     if block.getDomain() == 'media_player' or block.getDomain() == 'bright':
         if (rotation := calculate.rotation(block, mpu_data)) is not None:
             determineRotation(rotation)
+
+def determineScene(scene_name):
+    scene = block.getScene(scene_name)
+    if scene:
+        for service in scene:
+            homeassistant.callService(service)
+    else:
+        print(f"No {scene_name} found for menu: {block.menu}")
 
 def main() -> None:
     client = mqtt5.setupMQTT()
