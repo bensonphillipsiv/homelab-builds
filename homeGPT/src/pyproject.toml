@@ -1,0 +1,16 @@
+[project]
+name = "homegpt"
+version = "0.1.0"
+description = "homeGPT"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "dotenv>=0.9.9",
+    "faster-whisper>=1.1.1",
+    "openai>=1.97.1",
+    "pvcobra>=2.0.5",
+    "pvporcupine>=3.0.5",
+    "pyaudio>=0.2.14",
+    "strands-agents>=1.1.0",
+    "strands-agents-tools>=0.2.2",
+]

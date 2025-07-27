@@ -58,7 +58,6 @@ def rotation(block, mpu_data):
 
 def shake(block, mpu_data):
     acc_mag = math.sqrt(mpu_data['accx']**2 + mpu_data['accy']**2 + mpu_data['accz']**2)
-    # print(acc_mag)
     if acc_mag > SHAKE_THRESHOLD_G:
         block.setShakeCount(1)
     else:
