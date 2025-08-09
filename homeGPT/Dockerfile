@@ -4,7 +4,9 @@ COPY src/. .
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    build-essential portaudio19-dev && \
+    build-essential \
+    portaudio19-dev \
+    ffmpeg && \
     rm -rf /var/lib/apt/lists/*
 
 ENV UV_COMPILE_BYTECODE=1
@@ -12,4 +14,5 @@ ENV UV_LINK_MODE=copy
 ENV PYTHONUNBUFFERED=1
 
 RUN uv sync --locked
+
 CMD ["uv", "run", "python", "audio_test.py"]
