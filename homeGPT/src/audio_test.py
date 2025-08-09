@@ -5,7 +5,7 @@ RATE = 16000
 CHANNELS = 1
 FRAME_BYTES = 2 * CHANNELS  # 16-bit PCM
 
-RTSP_URL = os.getenv("RTSP_URL", "'rtsp://192.168.1.123:8554/mic")
+RTSP_URL = os.getenv("RTSP_URL", "rtsp://192.168.1.123:8554/mic")
 
 ffmpeg_cmd = [
     "ffmpeg", "-hide_banner", "-loglevel", "error",
