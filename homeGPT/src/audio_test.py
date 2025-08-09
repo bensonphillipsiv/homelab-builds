@@ -1,4 +1,4 @@
-import subprocess, numpy as np, time, sys
+import subprocess, numpy as np, time, sys, os
 
 CHUNK = 1024
 RATE = 16000
