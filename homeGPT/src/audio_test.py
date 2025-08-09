@@ -1,4 +1,4 @@
-import subprocess, numpy as np, time, sys, os
+import subprocess, numpy as np, sys, os
 
 CHUNK = 1024
 RATE = 16000
@@ -30,16 +30,12 @@ def read_pcm_frames(n_frames: int) -> bytes:
     return bytes(out)
 
 print("Listening from MediaMTX…")
-last = 0.0
 try:
     while True:
         data = read_pcm_frames(CHUNK)
         samples = np.frombuffer(data, dtype=np.int16)
         rms = float(np.sqrt(np.mean(samples.astype(np.float32)**2)))
-        now = time.time()
-        if now - last >= 1.0:
-            print(f"RMS: {rms:6.0f}")  # newline for k8s logs
-            last = now
+        print(f"RMS: {rms:6.0f}")  # newline for k8s logs
 except EOFError as e:
     print(f"Stream ended: {e}", file=sys.stderr)
     sys.exit(1)
