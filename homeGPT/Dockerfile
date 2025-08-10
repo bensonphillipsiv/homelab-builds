@@ -15,4 +15,4 @@ ENV PYTHONUNBUFFERED=1
 
 RUN uv sync --locked
 
-CMD ["uv", "run", "python", "audio_test.py"]
+CMD ["uv", "run", "python", "__main__.py"]
