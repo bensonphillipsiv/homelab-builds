@@ -33,6 +33,7 @@ def speaker_thread(q_tts: queue.Queue):
         text = q_tts.get()
         if not text:
             continue
+        print(f"🔊  {text}")
         try:
             for chunk in tts.synthesize(text):
                 # Piper gives 16-bit PCM frames as bytes
