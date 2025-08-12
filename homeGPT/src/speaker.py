@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 TTS_VOICE_PATH = "./models/kusal_medium.onnx"
-RTSP_SPEAKER_URL = os.getenv("RTSP_SPEAKER_URL", "rtsp://mediamtx.media.svc.cluster.local:8554/speak")
+RTSP_SPEAKER_URL = os.getenv("RTSP_SPEAKER_URL", "rtsp://mediamtx.mediamtx.svc.cluster.local:8554/speak")
 
 def resolve_mediamtx_host():
     """Resolve MediaMTX hostname and suggest alternatives"""
