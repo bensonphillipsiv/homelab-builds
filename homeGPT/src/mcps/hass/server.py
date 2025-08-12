@@ -244,7 +244,7 @@ async def list_entities(
     Args:
         domain: Optional domain to filter by (e.g., 'light', 'switch', 'sensor')
         search_query: Optional search one singular word to filter entities by name, id, domain, or attributes
-                     (Note: Does not support wildcards. To get all entities, leave this empty)
+                     (Note: Does not support wildcards. Use single words only (e.g 'living' instead of 'living room'. To get all entities, leave this empty)
         limit: Maximum number of entities to return (default: 100)
         fields: Optional list of specific fields to include in each entity
         detailed: If True, returns all entity fields without filtering
