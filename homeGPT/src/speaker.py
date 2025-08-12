@@ -13,7 +13,7 @@ def init_ffmpeg_publisher(sample_rate: int) -> subprocess.Popen:
         "-rtsp_transport", "tcp",
         "-fflags", "nobuffer", "-flags", "low_delay",
         "-re",                              # pace stdin in realtime
-        "-f", "s16le", "-ac", 1, "-ar", str(sample_rate),
+        "-f", "s16le", "-ac", "1", "-ar", str(sample_rate),
         "-i", "-",                          # read PCM from stdin
         "-c:a", "libopus", "-b:a", "32k",
         "-frame_duration", "20", "-application", "voip",
