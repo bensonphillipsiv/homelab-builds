@@ -286,15 +286,30 @@ async def list_entities(
     if search_query == "*":
         search_query = None
         logger.info("Converting '*' search query to None (retrieving all entities)")
-    
-    # Use the updated get_entities function with field filtering
-    return await get_entities(
+
+     # Use the updated get_entities function with field filtering
+    entities = await get_entities(
         domain=domain, 
         search_query=search_query, 
         limit=limit,
         fields=fields,
         lean=not detailed  # Use lean format unless detailed is requested
     )
+    
+    # Return informative response if no entities found
+    if not entities:
+        return [{
+            "message": "No entities found",
+            "search_criteria": {
+                "domain": domain,
+                "search_query": search_query,
+                "limit": limit,
+                "fields": fields,
+                "detailed": detailed
+            }
+        }]
+
+    return entities
 
 @mcp.resource("hass://entities")
 @async_handler("get_all_entities_resource")

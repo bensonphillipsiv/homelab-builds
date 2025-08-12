@@ -106,6 +106,7 @@ def listener_thread(q_utterance: queue.Queue):
     stream = init_ffmpeg()
     ww_model, vad_model = init_wake_vad()
 
+    voiced_once = False
     collecting = False   # are we buffering an utterance?
     buf        = []
     silence    = 0       # VAD silence counter
