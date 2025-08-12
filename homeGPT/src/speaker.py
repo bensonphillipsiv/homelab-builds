@@ -1,7 +1,7 @@
 """
 TTS → MediaMTX (RTSP publisher)
 """
-import os, subprocess, queue, time
+import os, subprocess, queue
 from piper import PiperVoice
 
 TTS_VOICE_PATH = "./models/kusal_medium.onnx"
@@ -28,19 +28,18 @@ def tts_init():
 
 def speaker_thread(q_tts: queue.Queue):
     ff, tts = tts_init()
-    sr = tts.config.sample_rate
-    silence_20ms = b"\x00\x00" * int(sr * 0.02)  # s16le mono
     print("[Speaker started → RTSP]")
     while True:
-        try:
-            text = q_tts.get(timeout=0.02)  # 20 ms pacing
-        except queue.Empty:
-            ff.stdin.write(silence_20ms)
+        text = q_tts.get()
+        if not text:
             continue
-
         try:
             for chunk in tts.synthesize(text):
+                # Piper gives 16-bit PCM frames as bytes
                 ff.stdin.write(chunk.audio_int16_bytes)
+            ff.stdin.flush()
         except (BrokenPipeError, ValueError):
-            ff.terminate(); ff.wait(timeout=2)
+            # Reconnect if MediaMTX dropped/restarted
+            ff.terminate()
+            ff.wait(timeout=2)
             ff, _ = tts_init()

@@ -1,4 +1,4 @@
-import os, struct, queue, subprocess, time
+import os, struct, queue, pyaudio, subprocess
 from dotenv import load_dotenv
 import webrtcvad
 from openwakeword.model import Model
@@ -82,21 +82,7 @@ def listener_thread(q_utterance: queue.Queue):
     while True:
         # pcm = stream.read(FRAME, exception_on_overflow=False)
         # frame = struct.unpack_from(f"{FRAME}h", pcm)
-        try:
-            frame_bytes = read_frames(stream)   # unchanged
-            backoff = 0.5                       # ADDED: reset on success
-        except EOFError:
-            try:
-                stream.terminate()
-                stream.wait(timeout=1)
-            except Exception:
-                pass
-            delay = min(5.0, backoff * 2)
-            print(f"[ffmpeg] disconnected; retrying in {delay:.1f}s…")
-            time.sleep(delay)
-            backoff = delay
-            stream = init_ffmpeg()
-            continue
+        frame_bytes = read_frames(stream)
         frame = struct.unpack_from(f"<{SAMPLES_PER_80MS}h", frame_bytes)
 
         scores = ww_model.predict(frame)
