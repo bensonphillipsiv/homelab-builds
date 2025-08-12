@@ -1,11 +1,10 @@
-import os, struct, queue, pyaudio, subprocess
+import os, struct, queue, pyaudio
 from dotenv import load_dotenv
 import webrtcvad
 from openwakeword.model import Model
 
 
 load_dotenv()
-RTSP_LISTENER_URL = os.getenv("RTSP_LISTENER_URL", "rtsp://mediamtx.mediamtx.svc.cluster.local:8554/listen") # rtsp://192.168.1.123:8554/mic
 CHANNELS = 1
 RATE = 16000
 MS = 80
@@ -13,48 +12,20 @@ FRAME_BYTES = 2 * CHANNELS
 SAMPLES_PER_80MS = RATE * MS // 1000  # 1280 samples @ 80ms
 
 
-def init_ffmpeg():
-    ffmpeg_cmd = [
-        "ffmpeg", "-hide_banner", "-loglevel", "error",
-        "-rtsp_transport", "tcp",
-        "-fflags", "nobuffer", "-flags", "low_delay",
-        "-probesize", "32", "-analyzeduration", "0",
-        "-i", RTSP_LISTENER_URL,
-        "-ac", str(CHANNELS), "-ar", str(RATE),
-        "-f", "s16le", "-"
-    ]
-
-    ffmpeg_stream = subprocess.Popen(ffmpeg_cmd, stdout=subprocess.PIPE, bufsize=10**6)
-    return ffmpeg_stream
-
-
-def init_wake_vad():
+def init_listener():
     """Initialize the listener."""
     ww_model = Model()
     vad_model = webrtcvad.Vad(2)
-    
-    return ww_model, vad_model
 
-
-def read_frames(stream) -> bytes:
-    """
-    Read audio frames in exact multiples of the specified milliseconds (default 80ms)
-    Returns: bytes object containing raw PCM data
-    """
-    samples_per_window = (RATE * MS) // 1000  # at 16kHz, 80ms = 1280 samples
-    bytes_needed = samples_per_window * FRAME_BYTES  # 2 bytes per sample for s16le
+    p = pyaudio.PyAudio()
+    stream = p.open(rate=RATE,
+        channels=1,
+        format=pyaudio.paInt16,
+        input=True,
+        frames_per_buffer=SAMPLES_PER_80MS
+    )
     
-    # Read the required number of bytes
-    out = bytearray()
-    while len(out) < bytes_needed:
-        chunk = stream.stdout.read(bytes_needed - len(out))
-        if not chunk:
-            raise EOFError("FFmpeg/RTSP stream ended")
-        out.extend(chunk)
-    
-    # Return raw bytes instead of unpacking
-    return bytes(out)
-
+    return stream, ww_model, vad_model
 
 def split_20ms_frames(frame80_bytes: bytes):
     """Yield four 20 ms (320-sample) raw PCM chunks from an 80 ms (1280-sample) frame."""
@@ -70,8 +41,7 @@ def listener_thread(q_utterance: queue.Queue):
     - wake-word detection
     - VAD segmentation producing an 'Utterance'
     """
-    stream = init_ffmpeg()
-    ww_model, vad_model = init_wake_vad()
+    stream, ww_model, vad_model = init_listener()
 
     voiced_once = False
     collecting = False   # are we buffering an utterance?
@@ -82,8 +52,8 @@ def listener_thread(q_utterance: queue.Queue):
     while True:
         # pcm = stream.read(FRAME, exception_on_overflow=False)
         # frame = struct.unpack_from(f"{FRAME}h", pcm)
-        frame_bytes = read_frames(stream)
-        frame = struct.unpack_from(f"<{SAMPLES_PER_80MS}h", frame_bytes)
+        pcm = stream.read(SAMPLES_PER_80MS, exception_on_overflow=False)
+        frame = struct.unpack_from(f"{SAMPLES_PER_80MS}h", pcm)
 
         scores = ww_model.predict(frame)
         score = scores.get("hey_jarvis", 0.0)  # or: max(scores.values(), default=0.0)
@@ -98,7 +68,7 @@ def listener_thread(q_utterance: queue.Queue):
             buf.extend(frame)
 
             # run VAD over 4×20 ms subframes
-            for sub in split_20ms_frames(frame_bytes):
+            for sub in split_20ms_frames(pcm):
                 if vad_model.is_speech(sub, RATE):
                     voiced_once = True
                     silence = 0
