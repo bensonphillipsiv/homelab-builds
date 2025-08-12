@@ -10,16 +10,14 @@ RTSP_SPEAKER_URL = os.getenv("RTSP_SPEAKER_URL", "rtsp://mediamtx.media.svc.clus
 def init_ffmpeg_publisher(sample_rate: int) -> subprocess.Popen:
     ffmpeg_cmd = [
         "ffmpeg", "-hide_banner", "-loglevel", "error",
-        "-rtsp_transport", "tcp",
         "-fflags", "nobuffer", "-flags", "low_delay",
-        "-re",                              # pace stdin in realtime
+        "-re",
         "-f", "s16le", "-ac", "1", "-ar", str(sample_rate),
-        "-i", "-",                          # read PCM from stdin
+        "-i", "-",
         "-c:a", "libopus", "-b:a", "32k",
         "-frame_duration", "20", "-application", "voip",
         "-f", "rtsp", RTSP_SPEAKER_URL
     ]
-
     return subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, bufsize=10**6)
 
 def tts_init():
@@ -41,7 +39,8 @@ def speaker_thread(q_tts: queue.Queue):
                 ff.stdin.write(chunk.audio_int16_bytes)
             ff.stdin.flush()
         except (BrokenPipeError, ValueError):
-            # Reconnect if MediaMTX dropped/restarted
+            try: ff.stdin.close()
+            except: pass
             ff.terminate()
             ff.wait(timeout=2)
             ff, _ = tts_init()
