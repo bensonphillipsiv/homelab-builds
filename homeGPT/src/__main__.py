@@ -12,10 +12,10 @@ def main():
     
     # Start worker threads
     t_listener = threading.Thread(target=listener_thread, args=(q_utterance,), daemon=True)
-    # t_speaker = threading.Thread(target=speaker_thread, args=(q_tts,), daemon=True)
+    t_speaker = threading.Thread(target=speaker_thread, args=(q_tts,), daemon=True)
 
     t_listener.start()
-    # t_speaker.start()
+    t_speaker.start()
 
     # Start orchestrator
     # asyncio.run(orchestrator_thread(q_utterance, q_tts))
