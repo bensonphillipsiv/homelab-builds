@@ -1,43 +1,46 @@
 """
-Text-to-Speech (TTS) using PiperVoice.
+TTS → MediaMTX (RTSP publisher)
 """
-import pyaudio, queue
+import os, subprocess, queue, time
 from piper import PiperVoice
 
-
 TTS_VOICE_PATH = "./models/kusal_medium.onnx"
+RTSP_SPEAKER_URL = os.getenv("RTSP_SPEAKER_URL", "rtsp://mediamtx.media.svc.cluster.local:8554/speak")
 
+def open_rtsp_publisher(sample_rate: int) -> subprocess.Popen:
+    # Publishes s16le mono PCM to MediaMTX as low-latency Opus.
+    return subprocess.Popen([
+        "ffmpeg",
+        "-nostdin", "-loglevel", "warning",
+        "-re",                            # pace stdin to realtime
+        "-f", "s16le", "-ac", "1", "-ar", str(sample_rate),
+        "-i", "-",                        # read PCM from stdin
+        "-c:a", "libopus", "-b:a", "32k",
+        "-frame_duration", "20", "-application", "voip",
+        "-rtsp_transport", "tcp",
+        "-f", "rtsp", RTSP_SPEAKER_URL
+    ], stdin=subprocess.PIPE)
 
 def tts_init():
-    """Initialize the tts."""
-
-    voice = PiperVoice.load(TTS_VOICE_PATH)
-
-    pa     = pyaudio.PyAudio()
-    stream = pa.open(
-        format     = pyaudio.paInt16,
-        channels   = 1,
-        rate       = voice.config.sample_rate,
-        output     = True
-    )
-
-    return stream, voice
-
+    tts = PiperVoice.load(TTS_VOICE_PATH)
+    ff = open_rtsp_publisher(tts.config.sample_rate)
+    return ff, tts
 
 def speaker_thread(q_tts: queue.Queue):
-    """
-    Owns the text-to-speech:
-    - receives text from the orchestrator
-    - outputs using Piper
-    """
-
-    stream, voice = tts_init()
-
-    print("[Speaker started]")
+    ff, tts = tts_init()
+    sr = tts.config.sample_rate
+    silence_20ms = b"\x00\x00" * int(sr * 0.02)  # s16le mono
+    print("[Speaker started → RTSP]")
     while True:
-        text = q_tts.get()
-        if not text:
+        try:
+            text = q_tts.get(timeout=0.02)  # 20 ms pacing
+        except queue.Empty:
+            ff.stdin.write(silence_20ms)
             continue
 
-        for chunk in voice.synthesize(text):
-            stream.write(chunk.audio_int16_bytes)
+        try:
+            for chunk in tts.synthesize(text):
+                ff.stdin.write(chunk.audio_int16_bytes)
+        except (BrokenPipeError, ValueError):
+            ff.terminate(); ff.wait(timeout=2)
+            ff, _ = tts_init()

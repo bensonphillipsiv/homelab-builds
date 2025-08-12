@@ -1,20 +1,16 @@
-import os, struct, queue, pyaudio, subprocess
+import os, struct, queue, subprocess, time
 from dotenv import load_dotenv
 import webrtcvad
 from openwakeword.model import Model
 
 
 load_dotenv()
-RTSP_URL = os.getenv("RTSP_URL", "rtsp://192.168.1.123:8554/mic") # "rtsp://mediamtx.mediamtx.svc.cluster.local:8554/mic"
+RTSP_LISTENER_URL = os.getenv("RTSP_LISTENER_URL", "rtsp://mediamtx.mediamtx.svc.cluster.local:8554/listen") # rtsp://192.168.1.123:8554/mic
 CHANNELS = 1
-
 RATE = 16000
 MS = 80
-FRAME_80MS = 1280          # (80 ms @ 16 kHz)
-FRAME_BYTES = 2 * CHANNELS 
-SAMPLES_PER_80MS = 16000 * 80 // 1000  # 1280
-PICOVOICE_KEY = os.getenv("PICOVOICE_KEY")
-WAKE_WORDS = ["jarvis", "bumblebee"]
+FRAME_BYTES = 2 * CHANNELS
+SAMPLES_PER_80MS = RATE * MS // 1000  # 1280 samples @ 80ms
 
 
 def init_ffmpeg():
@@ -23,7 +19,7 @@ def init_ffmpeg():
         "-rtsp_transport", "tcp",
         "-fflags", "nobuffer", "-flags", "low_delay",
         "-probesize", "32", "-analyzeduration", "0",
-        "-i", RTSP_URL,
+        "-i", RTSP_LISTENER_URL,
         "-ac", str(CHANNELS), "-ar", str(RATE),
         "-f", "s16le", "-"
     ]
@@ -34,40 +30,10 @@ def init_ffmpeg():
 
 def init_wake_vad():
     """Initialize the listener."""
-    # Initialize Picovoice
-    # porcupine = pvporcupine.create(
-    #     access_key=PICOVOICE_KEY,
-    #     keywords=WAKE_WORDS,
-    # )
-    # cobra  = pvcobra.create(access_key=PICOVOICE_KEY)
-
-    # RATE = porcupine.sample_rate
-    # FRAME = porcupine.frame_length
     ww_model = Model()
     vad_model = webrtcvad.Vad(2)
-
-
-    # Initialize PyAudio Stream
-    # p = pyaudio.PyAudio()
-    # stream = p.open(rate=RATE,
-    #                 channels=1,
-    #                 format=pyaudio.paInt16,
-    #                 input=True,
-    #                 frames_per_buffer=FRAME)
     
     return ww_model, vad_model
-
-
-# def read_frames(n_frames, stream) -> bytes:
-#     need = n_frames * FRAME_BYTES  # FRAME_BYTES = 2 * CHANNELS (s16le mono)
-#     out = bytearray()
-#     while len(out) < need:
-#         chunk = stream.stdout.read(need - len(out))
-#         if not chunk:
-#             raise EOFError("FFmpeg/RTSP stream ended")
-#         out.extend(chunk)
-#     # Convert s16le bytes -> tuple[int] of length n_frames
-#     return struct.unpack_from(f"<{n_frames}h", out)
 
 
 def read_frames(stream) -> bytes:
@@ -97,6 +63,7 @@ def split_20ms_frames(frame80_bytes: bytes):
         start = i * 640
         yield frame80_bytes[start:start + 640]
 
+
 def listener_thread(q_utterance: queue.Queue):
     """
     Owns the microphone:
@@ -115,7 +82,21 @@ def listener_thread(q_utterance: queue.Queue):
     while True:
         # pcm = stream.read(FRAME, exception_on_overflow=False)
         # frame = struct.unpack_from(f"{FRAME}h", pcm)
-        frame_bytes = read_frames(stream)
+        try:
+            frame_bytes = read_frames(stream)   # unchanged
+            backoff = 0.5                       # ADDED: reset on success
+        except EOFError:
+            try:
+                stream.terminate()
+                stream.wait(timeout=1)
+            except Exception:
+                pass
+            delay = min(5.0, backoff * 2)
+            print(f"[ffmpeg] disconnected; retrying in {delay:.1f}s…")
+            time.sleep(delay)
+            backoff = delay
+            stream = init_ffmpeg()
+            continue
         frame = struct.unpack_from(f"<{SAMPLES_PER_80MS}h", frame_bytes)
 
         scores = ww_model.predict(frame)

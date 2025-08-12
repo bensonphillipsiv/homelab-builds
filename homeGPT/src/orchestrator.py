@@ -29,4 +29,4 @@ def orchestrator_thread(q_utterance: queue.Queue, q_tts: queue.Queue):
         reply = agent_request(request_text, mcp, model)
         print(f"\n🤖  {reply}")
 
-        # q_tts.put(reply)
+        q_tts.put(reply)
