@@ -299,6 +299,7 @@ dependencies = [
     { name = "faster-whisper" },
     { name = "openai" },
     { name = "openwakeword" },
+    { name = "opuslib" },
     { name = "piper-tts" },
     { name = "pvcobra" },
     { name = "pvporcupine" },
@@ -314,6 +315,7 @@ requires-dist = [
     { name = "faster-whisper", specifier = ">=1.1.1" },
     { name = "openai", specifier = ">=1.97.1" },
     { name = "openwakeword", specifier = ">=0.4.0" },
+    { name = "opuslib", specifier = ">=3.0.1" },
     { name = "piper-tts", specifier = ">=1.3.0" },
     { name = "pvcobra", specifier = ">=2.0.5" },
     { name = "pvporcupine", specifier = ">=3.0.5" },
@@ -770,6 +772,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/16/40/2afdab3146f08fa51
 wheels = [
     { url = "https://files.pythonhosted.org/packages/18/0f/6b22ebf0808363d0c71f7e5d0880b1c13c6a2cdcae2dc2cb8adfbdbcc278/openwakeword-0.4.0-py3-none-any.whl", hash = "sha256:2c353f49a35d384507403efde3db439353d8281a52d08a0e42a5b493e5145075", size = 9285483, upload-time = "2023-04-22T22:07:28.766Z" },
 ]
+
+[[package]]
+name = "opuslib"
+version = "3.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/46/55/826befabb29fd3902bad6d6d7308790894c7ad4d73f051728a0c53d37cd7/opuslib-3.0.1.tar.gz", hash = "sha256:2cb045e5b03e7fc50dfefe431e3404dddddbd8f5961c10c51e32dfb69a044c97", size = 8550, upload-time = "2018-01-16T06:04:42.184Z" }
 
 [[package]]
 name = "packaging"
