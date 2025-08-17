@@ -27,11 +27,7 @@ T = TypeVar('T')
 from mcp.server.fastmcp import FastMCP, Context, Image
 from mcp.server.stdio import stdio_server
 import mcp.types as types
-mcp = FastMCP("hass_mcp", capabilities={
-    "resources": {},
-    "tools": {},
-    "prompts": {}
-})
+mcp = FastMCP("hass_mcp")
 
 def async_handler(command_type: str):
     """
@@ -245,6 +241,7 @@ async def list_entities(
         domain: Optional domain to filter by (e.g., 'light', 'switch', 'sensor')
         search_query: Optional search one singular word to filter entities by name, id, domain, or attributes
                      (Note: Does not support wildcards. Use single words only (e.g 'living' instead of 'living room'. To get all entities, leave this empty)
+        limit: Maximum number of entities to return (default: 100)
         fields: Optional list of specific fields to include in each entity
         detailed: If True, returns all entity fields without filtering
     
@@ -253,7 +250,7 @@ async def list_entities(
     
     Examples:
         domain="light" - get all lights
-        search_query="kitchen" - search entities
+        search_query="kitchen", limit=20 - search entities
         domain="sensor", detailed=True - full sensor details
     
     Best Practices:
@@ -377,13 +374,14 @@ async def get_all_entities_resource() -> str:
 
 @mcp.tool()
 @async_handler("search_entities_tool")
-async def search_entities_tool(query: str, limit: int = 100) -> Dict[str, Any]:
+async def search_entities_tool(query: str, limit: int = 20) -> Dict[str, Any]:
     """
     Search for entities matching a query string
     
     Args:
         query: The search query to match against entity IDs, names, and attributes.
               (Note: Does not support wildcards. To get all entities, leave this blank or use list_entities tool)
+        limit: Maximum number of results to return (default: 20)
     
     Returns:
         A dictionary containing search results and metadata:
@@ -393,11 +391,11 @@ async def search_entities_tool(query: str, limit: int = 100) -> Dict[str, Any]:
         
     Examples:
         query="temperature" - find temperature entities
-        query="living" - find living room entities
-        query="" - list all entity types
+        query="living room", limit=10 - find living room entities
+        query="", limit=500 - list all entity types
         
     """
-    logger.info(f"Searching for entities matching: '{query}'")
+    logger.info(f"Searching for entities matching: '{query}' with limit: {limit}")
     
     # Special case - treat "*" as empty query to just return entities without filtering
     if query == "*":
@@ -406,7 +404,7 @@ async def search_entities_tool(query: str, limit: int = 100) -> Dict[str, Any]:
     
     # Handle empty query as a special case to just return entities up to the limit
     if not query or not query.strip():
-        logger.info(f"Empty query - retrieving entities without filtering")
+        logger.info(f"Empty query - retrieving up to {limit} entities without filtering")
         entities = await get_entities(limit=limit, lean=True)
         
         # Check if there was an error
@@ -541,9 +539,9 @@ async def search_entities_resource_with_limit(query: str, limit: str) -> str:
     try:
         limit_int = int(limit)
         if limit_int <= 0:
-            limit_int = 100
+            limit_int = 20
     except ValueError:
-        limit_int = 100
+        limit_int = 20
         
     logger.info(f"Searching for entities matching: '{query}' with custom limit: {limit_int}")
     

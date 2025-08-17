@@ -1,17 +1,17 @@
 """
 Text-to-Speech (TTS) using PiperVoice.
 """
-import queue, os
+import queue
 from piper import PiperVoice
 
 
-TTS_MODEL = os.getenv("TTS_MODEL", "danny_low")
-TTS_MODEL_PATH = f"./models/{TTS_MODEL}.onnx"
+TTS_VOICE_PATH = "./models/lessac_low.onnx"
 
 
 def speaker_init():
     """Initialize the tts."""
-    tts = PiperVoice.load(TTS_MODEL_PATH)
+
+    tts = PiperVoice.load(TTS_VOICE_PATH)
 
     # pa     = pyaudio.PyAudio()
     # stream = pa.open(
@@ -30,6 +30,7 @@ def speaker_thread(q_tts: queue.Queue, audio_handler):
     - receives text from the orchestrator
     - outputs using Piper
     """
+
     tts = speaker_init()
 
     print("[Speaker started]")
@@ -42,8 +43,8 @@ def speaker_thread(q_tts: queue.Queue, audio_handler):
         for chunk in tts.synthesize(text):
             # Handler now buffers internally
             parts.append(chunk.audio_int16_bytes)
-
-        audio_handler.send_audio(b"".join(parts))
+            
+        audio_handler.send_audio(chunk.audio_int16_bytes)
         
         # Flush any remaining audio
         # audio_handler.flush_audio()

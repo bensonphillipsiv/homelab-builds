@@ -1,10 +1,11 @@
 import os, struct, socket
 from dotenv import load_dotenv
 import opuslib
+import random
 
 
 load_dotenv()
-AUDIO_DEVICE_IP = os.getenv("AUDIO_DEVICE_IP")
+AUDIO_DEVICE_IP = os.getenv("AUDIO_DEVICE_IP", "192.168.1.132")
 LOCAL_IP = "0.0.0.0"
 RECV_PORT = 5004
 SEND_PORT = 5005
@@ -39,8 +40,8 @@ class BidirectionalRTPHandler:
         # RTP state for sending
         self.seq_num = 0
         self.timestamp = 0
-        self.ssrc = 12345
-        
+        self.ssrc = 12345 #int(random.randint(0, 0xFFFFFFFF))
+
         self.frame_buffer = []  # Buffer to accumulate 20ms frames into 80ms
         print(f"Listening on {LOCAL_IP}:{recv_port}, sending to {pi_ip}:{send_port}")
     
