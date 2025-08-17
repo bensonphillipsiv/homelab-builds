@@ -228,7 +228,6 @@ async def get_entities(
     Args:
         domain: Optional domain to filter entities by (e.g., 'light', 'switch')
         search_query: Optional case-insensitive search term to filter by entity_id, friendly_name or other attributes
-        limit: Maximum number of entities to return (default: 100)
         fields: Optional list of specific fields to include in each entity
         lean: If True (default), returns token-efficient versions with minimal fields
     
@@ -279,8 +278,8 @@ async def get_entities(
         entities = filtered_entities
     
     # Apply the limit
-    if limit > 0 and len(entities) > limit:
-        entities = entities[:limit]
+    if 100 > 0 and len(entities) > 100:
+        entities = entities[:100]
     
     # Apply field filtering if requested
     if fields:
@@ -336,7 +335,6 @@ async def summarize_domain(domain: str, example_limit: int = 3) -> Dict[str, Any
     
     Args:
         domain: The domain to summarize (e.g., 'light', 'switch')
-        example_limit: Maximum number of examples to include for each state
         
     Returns:
         Dictionary with summary information
@@ -365,7 +363,7 @@ async def summarize_domain(domain: str, example_limit: int = 3) -> Dict[str, Any
             state_counts[state] += 1
             
             # Add examples (up to the limit)
-            if len(state_examples[state]) < example_limit:
+            if len(state_examples[state]) < 100:
                 example = {
                     "entity_id": entity["entity_id"],
                     "friendly_name": entity.get("attributes", {}).get("friendly_name", entity["entity_id"])

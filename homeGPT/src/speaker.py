@@ -1,37 +1,36 @@
 """
 Text-to-Speech (TTS) using PiperVoice.
 """
-import pyaudio, queue
+import queue, os
 from piper import PiperVoice
 
 
-TTS_VOICE_PATH = "./models/kusal_medium.onnx"
+TTS_MODEL = os.getenv("TTS_MODEL", "danny_low")
+TTS_MODEL_PATH = f"./models/{TTS_MODEL}.onnx"
 
 
 def speaker_init():
     """Initialize the tts."""
+    tts = PiperVoice.load(TTS_MODEL_PATH)
 
-    tts = PiperVoice.load(TTS_VOICE_PATH)
+    # pa     = pyaudio.PyAudio()
+    # stream = pa.open(
+    #     format     = pyaudio.paInt16,
+    #     channels   = 1,
+    #     rate       = tts.config.sample_rate,
+    #     output     = True
+    # )
 
-    pa     = pyaudio.PyAudio()
-    stream = pa.open(
-        format     = pyaudio.paInt16,
-        channels   = 1,
-        rate       = tts.config.sample_rate,
-        output     = True
-    )
-
-    return stream, tts
+    return tts
 
 
-def speaker_thread(q_tts: queue.Queue):
+def speaker_thread(q_tts: queue.Queue, audio_handler):
     """
     Owns the text-to-speech:
     - receives text from the orchestrator
     - outputs using Piper
     """
-
-    stream, tts = speaker_init()
+    tts = speaker_init()
 
     print("[Speaker started]")
     while True:
@@ -39,5 +38,12 @@ def speaker_thread(q_tts: queue.Queue):
         if not text:
             continue
 
+        parts = []
         for chunk in tts.synthesize(text):
-            stream.write(chunk.audio_int16_bytes)
+            # Handler now buffers internally
+            parts.append(chunk.audio_int16_bytes)
+
+        audio_handler.send_audio(b"".join(parts))
+        
+        # Flush any remaining audio
+        # audio_handler.flush_audio()

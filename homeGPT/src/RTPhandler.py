@@ -4,20 +4,28 @@ import opuslib
 
 
 load_dotenv()
-LOCAL_IP = "192.168.1.141"
-PI_IP = "192.168.1.131"  # Add your Pi's IP here
-RECV_PORT = 5004  # Port for receiving from Pi (mic audio)
-SEND_PORT = 5005  # Port for sending to Pi (TTS/responses)
+AUDIO_DEVICE_IP = os.getenv("AUDIO_DEVICE_IP")
+LOCAL_IP = "0.0.0.0"
+RECV_PORT = 5004
+SEND_PORT = 5005
 
+# Audio format
 CHANNELS = 1
 SAMPLE_RATE = 16000
-FRAME_BYTES = 2 * CHANNELS
-SAMPLES_PER_80MS = SAMPLE_RATE * 80 // 1000  # 1280 samples @ 80ms
-SAMPLES_PER_20MS = SAMPLE_RATE * 20 // 1000  # 320 samples @ 20ms
+BYTES_PER_SAMPLE = 2  # s16le (16-bit)
+
+# Frame sizing
+SAMPLES_PER_20MS = SAMPLE_RATE // 50               # 320 samples @ 20 ms
+BYTES_PER_20MS   = SAMPLES_PER_20MS * BYTES_PER_SAMPLE * CHANNELS  # 640 bytes
+
+# RTP / Opus specifics
+RTP_CLOCK_RATE       = 48000                       # Opus RTP clock is always 48 kHz (RFC 7587)
+RTP_TICKS_PER_20MS   = RTP_CLOCK_RATE // 50        # 960 ticks per 20 ms
+PAYLOAD_TYPE         = 111                          
 
 
-class BidirectionalRTPHandler:
-    def __init__(self, pi_ip=PI_IP, recv_port=RECV_PORT, send_port=SEND_PORT):
+class BidirectionalRTPHandler: 
+    def __init__(self, pi_ip=AUDIO_DEVICE_IP, recv_port=RECV_PORT, send_port=SEND_PORT):
         # Receiving setup (from Pi microphone)
         self.decoder = opuslib.Decoder(SAMPLE_RATE, CHANNELS)
         self.recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -36,34 +44,87 @@ class BidirectionalRTPHandler:
         self.frame_buffer = []  # Buffer to accumulate 20ms frames into 80ms
         print(f"Listening on {LOCAL_IP}:{recv_port}, sending to {pi_ip}:{send_port}")
     
-    def create_rtp_header(self):
-        """Create RTP header for outgoing packets"""
-        header = struct.pack('!BBHII',
-            0x80,  # V=2, P=0, X=0, CC=0
-            111,   # PT=111 (Opus)
-            self.seq_num,
-            self.timestamp,
-            self.ssrc
-        )
-        self.seq_num = (self.seq_num + 1) & 0xFFFF
-        self.timestamp += SAMPLES_PER_20MS
-        return header
+    # def create_rtp_header(self):
+    #     """Create RTP header for outgoing packets"""
+    #     header = struct.pack('!BBHII',
+    #         0x80,  # V=2, P=0, X=0, CC=0
+    #         111,   # PT=111 (Opus)
+    #         self.seq_num,
+    #         self.timestamp,
+    #         self.ssrc
+    #     )
+    #     self.seq_num = (self.seq_num + 1) & 0xFFFF
+    #     self.timestamp += SAMPLES_PER_20MS
+    #     return header
     
-    def send_audio(self, pcm_data):
-        """Send PCM audio to Pi speakers (for TTS playback)"""
-        # Ensure pcm_data is the right size (20ms chunks)
-        if len(pcm_data) == SAMPLES_PER_20MS * 2:  # 640 bytes for 20ms
-            opus_frame = self.encoder.encode(pcm_data, SAMPLES_PER_20MS)
+    def create_rtp_header(self, marker: bool = False) -> bytes:
+        """
+        Minimal RTP header for Opus:
+        - Version=2, P=0, X=0, CC=0
+        - M=marker (start of talkspurt), PT=self.payload_type (e.g., 111)
+        - seq, timestamp (48 kHz clock), ssrc
+        """
+        b0 = 0x80  # V=2, P=0, X=0, CC=0
+        b1 = (0x80 if marker else 0x00) | (self.payload_type & 0x7F)
+        return struct.pack("!BBHII", b0, b1, self.seq, self.ts, self.ssrc)
+        
+    def send_audio(self, pcm_data: bytes, end: bool = False):
+        """
+        Accept an arbitrary-length PCM s16le mono@16k block and send as 20 ms Opus/RTP.
+        - Buffers partial frames between calls
+        - Uses RTP marker bit on first packet of each talkspurt
+        - Increments RTP seq/timestamp correctly for Opus (48kHz clock)
+        Args:
+            pcm_data: raw PCM s16le mono at 16 kHz
+            end: if True, flush (pad) any trailing partial frame and mark next packet as new talkspurt
+        """
+        # Lazy-init sender state
+        if not hasattr(self, "send_buffer"):
+            self.send_buffer = bytearray()
+        if not hasattr(self, "seq"):
+            import os, random
+            self.seq = random.randrange(0, 1 << 16)
+            self.ts = random.randrange(0, 1 << 32)
+            self.ssrc = int.from_bytes(os.urandom(4), "big")
+            self.payload_type = getattr(self, "payload_type", PAYLOAD_TYPE)
+            self.marker_next = True  # set marker on first packet of a talkspurt
+
+        # Append new data
+        if pcm_data:
+            self.send_buffer.extend(pcm_data)
+
+        # Emit complete 20 ms frames
+        while len(self.send_buffer) >= BYTES_PER_20MS:
+            frame = bytes(self.send_buffer[:BYTES_PER_20MS])
+            del self.send_buffer[:BYTES_PER_20MS]
+
+            # Encode one 20ms frame. Most Opus encoders take s16le bytes + frame size in samples.
+            opus_frame = self.encoder.encode(frame, SAMPLES_PER_20MS)
+
+            # Build RTP header (marker set only on first packet of a talkspurt)
+            rtp_hdr = self.create_rtp_header(marker=self.marker_next)
+            self.marker_next = False  # only first packet gets marker
+
+            # Send
+            self.send_sock.sendto(rtp_hdr + opus_frame, self.pi_addr)
+
+            # Advance RTP state
+            self.seq = (self.seq + 1) & 0xFFFF
+            self.ts = (self.ts + RTP_TICKS_PER_20MS) & 0xFFFFFFFF
+            
+        
+    def flush_audio(self):
+        """Send any remaining buffered audio (padded with silence)"""
+        if hasattr(self, 'send_buffer') and self.send_buffer:
+            BYTES_PER_20MS = SAMPLES_PER_20MS * 2
+            remaining = bytes(self.send_buffer)
+            if len(remaining) < BYTES_PER_20MS:
+                remaining += b'\x00' * (BYTES_PER_20MS - len(remaining))
+            self.send_buffer.clear()
+            
+            opus_frame = self.encoder.encode(remaining, SAMPLES_PER_20MS)
             rtp_packet = self.create_rtp_header() + opus_frame
             self.send_sock.sendto(rtp_packet, self.pi_addr)
-        else:
-            # If not 20ms, chunk it
-            for i in range(0, len(pcm_data), SAMPLES_PER_20MS * 2):
-                chunk = pcm_data[i:i + SAMPLES_PER_20MS * 2]
-                if len(chunk) == SAMPLES_PER_20MS * 2:
-                    opus_frame = self.encoder.encode(chunk, SAMPLES_PER_20MS)
-                    rtp_packet = self.create_rtp_header() + opus_frame
-                    self.send_sock.sendto(rtp_packet, self.pi_addr)
     
     def get_audio_data(self):
         """Generator that yields decoded PCM audio data from Pi mic"""
