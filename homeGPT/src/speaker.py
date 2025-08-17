@@ -12,6 +12,7 @@ def speaker_init():
     """Initialize the tts."""
 
     tts = PiperVoice.load(TTS_VOICE_PATH)
+    # Send audio anytime:
 
     # pa     = pyaudio.PyAudio()
     # stream = pa.open(
@@ -39,12 +40,6 @@ def speaker_thread(q_tts: queue.Queue, audio_handler):
         if not text:
             continue
 
-        parts = []
         for chunk in tts.synthesize(text):
-            # Handler now buffers internally
-            parts.append(chunk.audio_int16_bytes)
-            
-        audio_handler.send_audio(chunk.audio_int16_bytes)
+            audio_handler.send_tts_audio(chunk.audio_int16_bytes)
         
-        # Flush any remaining audio
-        # audio_handler.flush_audio()

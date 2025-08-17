@@ -3,11 +3,15 @@ import threading
 from listener import listener_thread
 from orchestrator import orchestrator_thread
 from speaker import speaker_thread
-from RTPhandler import BidirectionalRTPHandler  # Import the RTP handler
+from PulseAudioHandler import PulseAudioHandler  # Import the RTP handler
 
 
 def main():
-    audio_handler = BidirectionalRTPHandler()
+    audio_handler = PulseAudioHandler(
+        pi_ip="192.168.1.132",
+        tts_port=4712,  # Pi speakers
+        mic_port=4713   # Pi microphone
+    )
 
     # Create queues for communication between threads
     q_utterance=queue.Queue(maxsize=3)
