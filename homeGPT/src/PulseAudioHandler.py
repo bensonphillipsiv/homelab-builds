@@ -50,7 +50,7 @@ class PulseAudioHandler:
         self.receiver_thread = threading.Thread(target=self._receive_audio_thread, daemon=True)
         self.receiver_thread.start()
 
-        self.bell_ding_audio = self._generate_alert_ding()
+        self.alert_ding_audio = self._generate_alert_ding()
 
         print(f"PulseAudio Handler initialized:")
         print(f"  TTS → Pi speakers: {pi_ip}:{tts_port}")
@@ -133,7 +133,15 @@ class PulseAudioHandler:
     
     def play_alert_ding(self):
         """Play the pre-generated bell ding sound"""
-        return self.send_audio(self.bell_ding_audio)
+        self.send_audio(self.alert_ding_audio)
+    
+        # Send 100ms of silence to push the ding through the buffer
+        silence_duration = 0.1  # seconds
+        silence_samples = int(SAMPLE_RATE * silence_duration)
+        silence = np.zeros(silence_samples, dtype=np.int16).tobytes()
+        self.send_audio(silence)
+        
+        return True
     
     def get_80ms_frames(self):
         """
