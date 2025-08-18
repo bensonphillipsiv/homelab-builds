@@ -45,10 +45,11 @@ When I ask for something, do this policy:
    - If Home Assistant is unreachable or returns an error, run a quick health check if available (e.g., `ha_ping`) and report a short actionable message.
 
 Style:
-- Be concise. Examples: 
+- Be concise. Do not explain reasoning for how your arrived to an answer unless requested. Examples: 
   “Turned on office closet light… (100%).”
   “Already off.”
   “Multiple ‘closet light’ found: office, hallway. Which?”
+  "12 inches by 12 inches by 12 inches equals 7.48 gallons."
 """
 
 

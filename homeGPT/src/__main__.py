@@ -7,11 +7,7 @@ from PulseAudioHandler import PulseAudioHandler  # Import the RTP handler
 
 
 def main():
-    audio_handler = PulseAudioHandler(
-        pi_ip="192.168.1.132",
-        tts_port=4712,  # Pi speakers
-        mic_port=4713   # Pi microphone
-    )
+    audio_handler = PulseAudioHandler()
 
     # Create queues for communication between threads
     q_utterance=queue.Queue(maxsize=3)
