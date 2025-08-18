@@ -250,7 +250,7 @@ async def list_entities(
     
     Examples:
         domain="light" - get all lights
-        search_query="kitchen", limit=20 - search entities
+        search_query="kitchen", limit=100 - search entities
         domain="sensor", detailed=True - full sensor details
     
     Best Practices:
@@ -374,14 +374,14 @@ async def get_all_entities_resource() -> str:
 
 @mcp.tool()
 @async_handler("search_entities_tool")
-async def search_entities_tool(query: str, limit: int = 20) -> Dict[str, Any]:
+async def search_entities_tool(query: str, limit: int = 100) -> Dict[str, Any]:
     """
     Search for entities matching a query string
     
     Args:
         query: The search query to match against entity IDs, names, and attributes.
-              (Note: Does not support wildcards. To get all entities, leave this blank or use list_entities tool)
-        limit: Maximum number of results to return (default: 20)
+              (Note: Does not support wildcards. Search queries with one word only i.e. search "living" for "living room". To get all entities, leave this blank or use list_entities tool.)
+        limit: Maximum number of results to return (default: 100)
     
     Returns:
         A dictionary containing search results and metadata:
@@ -391,7 +391,7 @@ async def search_entities_tool(query: str, limit: int = 20) -> Dict[str, Any]:
         
     Examples:
         query="temperature" - find temperature entities
-        query="living room", limit=10 - find living room entities
+        query="living", limit=10 - find living room entities
         query="", limit=500 - list all entity types
         
     """
@@ -537,11 +537,11 @@ async def search_entities_resource_with_limit(query: str, limit: str) -> str:
         - Consider domain-specific searches for better precision: "light kitchen" instead of just "kitchen"
     """
     try:
-        limit_int = int(limit)
+        limit_int = 100
         if limit_int <= 0:
-            limit_int = 20
+            limit_int = 100
     except ValueError:
-        limit_int = 20
+        limit_int = 100
         
     logger.info(f"Searching for entities matching: '{query}' with custom limit: {limit_int}")
     
