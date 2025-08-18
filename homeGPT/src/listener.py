@@ -9,6 +9,11 @@ SAMPLE_RATE = 16000
 SAMPLES_PER_80MS = SAMPLE_RATE * 80 // 1000  # 1280 samples @ 80ms
 SAMPLES_PER_20MS = SAMPLE_RATE * 20 // 1000  # 320 samples @ 20ms
 
+VAD_DELAY_SECONDS = 0.5 
+VAD_DELAY_FRAMES = int(VAD_DELAY_SECONDS * 1000 / 20)  # Convert to 20ms frame count
+VAD_SILENCE_SECONDS = 0.6  # Silence threshold for ending utterance
+VAD_SILENCE_FRAMES = int(VAD_SILENCE_SECONDS * 1000 / 20)
+
 
 def init_listener():
     """Initialize the listener."""
@@ -35,11 +40,13 @@ def listener_thread(q_utterance: queue.Queue, audio_handler):
     """
     ww_model, vad_model = init_listener()
 
-    voiced_once = False
     collecting = False   # are we buffering an utterance?
-    buf        = []
-    silence    = 0       # VAD silence counter
+    buf = []
+    silence = 0          # VAD silence counter
 
+    delay_frames_counter = 0
+    waiting_for_speech = True
+    
     print("[Listener started]")
     try:
         while True:
@@ -53,8 +60,15 @@ def listener_thread(q_utterance: queue.Queue, audio_handler):
 
                 # Wake-word triggers collection
                 if not collecting and score > 0.7:
-                    collecting, buf, silence = True, [], 0
-                    print("🔔 Wake word detected")
+                    collecting = True
+                    buf = []
+                    silence = 0
+                    
+                    # Reset state machine
+                    delay_frames_counter = 0
+                    waiting_for_speech = True
+                    
+                    print("🔔 Wake word detected - entering delay period")
                     continue
 
                 if collecting:
@@ -62,20 +76,34 @@ def listener_thread(q_utterance: queue.Queue, audio_handler):
 
                     # Run VAD over 4×20ms subframes
                     for sub_20ms in split_20ms_frames(pcm_80ms):
-                        if vad_model.is_speech(sub_20ms, SAMPLE_RATE):
-                            voiced_once = True
-                            silence = 0
+                        is_speech = vad_model.is_speech(sub_20ms, SAMPLE_RATE)
+                        
+                        if waiting_for_speech:
+                            delay_frames_counter += 1
+                            
+                            # Still in delay period
+                            if delay_frames_counter < VAD_DELAY_FRAMES:
+                                continue  # Skip VAD processing during delay
+                            
+                            # Delay period over, now looking for first actual speech
+                            if is_speech:
+                                waiting_for_speech = False
+                                silence = 0
+                                print(f"✅ First speech detected after wakeword delay")
                         else:
-                            if voiced_once:  # only count silence after we heard voice
+                            # Normal VAD processing after first speech detected
+                            if is_speech:
+                                silence = 0
+                            else:
                                 silence += 1
 
-                    if silence > 30:              # ≈0.6s gap (30 * 20ms)
+                    # Only end utterance if we've detected speech and have enough silence
+                    if not waiting_for_speech and silence > VAD_SILENCE_FRAMES:  # ≈0.6s gap (30 * 20ms)
                         collecting = False
-                        voiced_once = False
-                        q_utterance.put(buf.copy())     # hand over to ASR
+                        q_utterance.put(buf.copy())
                         buf.clear()
                         print("📨 Utterance queued")
-                    
+
     except KeyboardInterrupt:
         print("Stopping listener...")
     finally:
