@@ -63,6 +63,8 @@ def listener_thread(q_utterance: queue.Queue, audio_handler):
                     collecting = True
                     buf = []
                     silence = 0
+
+                    audio_handler.play_alert_ding()
                     
                     # Reset state machine
                     delay_frames_counter = 0

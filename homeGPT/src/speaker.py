@@ -41,5 +41,5 @@ def speaker_thread(q_tts: queue.Queue, audio_handler):
             continue
 
         for chunk in tts.synthesize(text):
-            audio_handler.send_tts_audio(chunk.audio_int16_bytes)
+            audio_handler.send_audio(chunk.audio_int16_bytes)
         

@@ -3,6 +3,7 @@ import threading
 import queue
 import time
 import os
+import numpy as np
 
 AUDIO_DEVICE_IP = os.getenv("AUDIO_DEVICE_IP", "192.168.1.132")
 AUDIO_LISTENER_PORT = os.getenv("AUDIO_LISTENER_PORT", 4713)
@@ -48,7 +49,9 @@ class PulseAudioHandler:
         self.running = True
         self.receiver_thread = threading.Thread(target=self._receive_audio_thread, daemon=True)
         self.receiver_thread.start()
-        
+
+        self.bell_ding_audio = self._generate_alert_ding()
+
         print(f"PulseAudio Handler initialized:")
         print(f"  TTS → Pi speakers: {pi_ip}:{tts_port}")
         print(f"  Mic ← Pi microphone: connecting to {pi_ip}:{mic_port}")
@@ -106,6 +109,31 @@ class PulseAudioHandler:
                 if self.mic_sock:
                     self.mic_sock.close()
                 time.sleep(1)
+
+    def _generate_alert_ding(self, sample_rate=SAMPLE_RATE):
+        """Generate a pleasant bell-like ding sound and cache it"""
+        duration = 0.3
+        t = np.linspace(0, duration, int(sample_rate * duration), endpoint=False)
+        
+        # Combine multiple frequencies for bell-like sound
+        fundamental = 800
+        bell_sound = (
+            0.6 * np.sin(2 * np.pi * fundamental * t) +
+            0.3 * np.sin(2 * np.pi * fundamental * 2 * t) +
+            0.1 * np.sin(2 * np.pi * fundamental * 3 * t)
+        )
+        
+        # Exponential decay envelope for bell effect
+        envelope = np.exp(-3 * t)
+        audio_signal = bell_sound * envelope * 0.2
+        
+        # Convert to 16-bit PCM
+        audio_pcm = (audio_signal * 32767).astype(np.int16)
+        return audio_pcm.tobytes()
+    
+    def play_alert_ding(self):
+        """Play the pre-generated bell ding sound"""
+        return self.send_tts_audio(self.bell_ding_audio)
     
     def get_80ms_frames(self):
         """
@@ -142,7 +170,7 @@ class PulseAudioHandler:
             except queue.Empty:
                 continue
     
-    def send_tts_audio(self, audio_data):
+    def send_audio(self, audio_data):
         """
         Send TTS audio to Pi speakers.
         
