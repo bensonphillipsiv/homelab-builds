@@ -136,7 +136,7 @@ class PulseAudioHandler:
         self.send_audio(self.alert_ding_audio)
     
         # Send 100ms of silence to push the ding through the buffer
-        silence_duration = 0.1  # seconds
+        silence_duration = 0.5  # seconds
         silence_samples = int(SAMPLE_RATE * silence_duration)
         silence = np.zeros(silence_samples, dtype=np.int16).tobytes()
         self.send_audio(silence)
