@@ -133,7 +133,7 @@ class PulseAudioHandler:
     
     def play_alert_ding(self):
         """Play the pre-generated bell ding sound"""
-        return self.send_tts_audio(self.bell_ding_audio)
+        return self.send_audio(self.bell_ding_audio)
     
     def get_80ms_frames(self):
         """
