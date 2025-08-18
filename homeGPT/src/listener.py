@@ -59,7 +59,7 @@ def listener_thread(q_utterance: queue.Queue, audio_handler):
                 score = scores.get("hey_jarvis", 0.0)
 
                 # Wake-word triggers collection
-                if not collecting and score > 0.9:
+                if not collecting and score > 0.7:
                     collecting = True
                     buf = []
                     silence = 0
