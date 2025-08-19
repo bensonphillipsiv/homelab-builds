@@ -16,5 +16,5 @@ dependencies = [
     "strands-agents-tools>=0.2.2",
     "webrtcvad>=2.0.10",
     "mcp[cli]>=1.4.1",
-    "pytz>=2025.2"
+    "pytz>=2025.2",
 ]
