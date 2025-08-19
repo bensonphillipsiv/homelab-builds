@@ -1,4 +1,5 @@
 from typing import Dict, Any, Optional, TypeVar, Callable, Awaitable, cast
+import os
 import functools
 import inspect
 import logging
@@ -70,12 +71,11 @@ async def get_time(
         Dictionary with current time information
     """
     if timezone_name is None:
-        now = datetime.now()
-        tz_info = "Local"
-    else:
-        tz = pytz.timezone(timezone_name)
-        now = datetime.now(tz)
-        tz_info = timezone_name
+        timezone_name = os.getenv("TIMEZONE", "America/Chicago")
+    
+    tz = pytz.timezone(timezone_name)
+    now = datetime.now(tz)
+    tz_info = timezone_name
     
     return {
         "current_time": now.strftime("%Y-%m-%d %H:%M:%S"),
