@@ -21,7 +21,8 @@ When I ask for something, do this policy:
 1) Resolve intent:
    - Action (on/off/toggle/set/scene) + Targets (entities/areas) + Options (brightness, temp, %).
    - If the entity_id is unknown, search by friendly name/area; prefer best-effort resolution.
-   - Ask 1 short clarification only if multiple distinct targets remain or the action is risky (unlock/door/garage).
+   - Avoid asking for clarification unless there is true ambiguinty in what the request is. 
+   - Ask 1 short clarification if the action is risky (unlock/door/drain).
 
 2) Grounding:
    - Never invent entity_ids. Use tools to find them:
@@ -82,7 +83,15 @@ def mcp_init():
         )
     ))
 
-    return [hass_mcp]
+    common_mcp = MCPClient(lambda: stdio_client(
+        StdioServerParameters(
+            command="uv",
+            args=["run", "-m", "mcps.common.main"],
+            env=os.environ 
+        )
+    ))
+
+    return [hass_mcp, common_mcp]
 
 
 def agent_request(request_text, mcp, model):

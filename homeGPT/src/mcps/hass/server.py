@@ -230,7 +230,6 @@ async def get_entity_resource(entity_id: str) -> str:
 async def list_entities(
     domain: Optional[str] = None, 
     search_query: Optional[str] = None, 
-    limit: int = 100,
     fields: Optional[List[str]] = None,
     detailed: bool = False
 ) -> List[Dict[str, Any]]:
@@ -241,7 +240,6 @@ async def list_entities(
         domain: Optional domain to filter by (e.g., 'light', 'switch', 'sensor')
         search_query: Optional search one singular word to filter entities by name, id, domain, or attributes
                      (Note: Does not support wildcards. Use single words only (e.g 'living' instead of 'living room'. To get all entities, leave this empty)
-        limit: Maximum number of entities to return (default: 100)
         fields: Optional list of specific fields to include in each entity
         detailed: If True, returns all entity fields without filtering
     
@@ -250,7 +248,7 @@ async def list_entities(
     
     Examples:
         domain="light" - get all lights
-        search_query="kitchen", limit=100 - search entities
+        search_query="kitchen" - search entities
         domain="sensor", detailed=True - full sensor details
     
     Best Practices:
@@ -267,8 +265,6 @@ async def list_entities(
         log_message += f" for domain: {domain}"
     if search_query:
         log_message += f" matching: '{search_query}'"
-    if limit != 100:
-        log_message += f" (limit: {limit})"
     if detailed:
         log_message += " (detailed format)"
     elif fields:
@@ -287,7 +283,6 @@ async def list_entities(
     entities = await get_entities(
         domain=domain, 
         search_query=search_query, 
-        limit=limit,
         fields=fields,
         lean=not detailed  # Use lean format unless detailed is requested
     )
@@ -299,7 +294,6 @@ async def list_entities(
             "search_criteria": {
                 "domain": domain,
                 "search_query": search_query,
-                "limit": limit,
                 "fields": fields,
                 "detailed": detailed
             }
@@ -374,14 +368,13 @@ async def get_all_entities_resource() -> str:
 
 @mcp.tool()
 @async_handler("search_entities_tool")
-async def search_entities_tool(query: str, limit: int = 100) -> Dict[str, Any]:
+async def search_entities_tool(query: str) -> Dict[str, Any]:
     """
     Search for entities matching a query string
     
     Args:
         query: The search query to match against entity IDs, names, and attributes.
               (Note: Does not support wildcards. Search queries with one word only i.e. search "living" for "living room". To get all entities, leave this blank or use list_entities tool.)
-        limit: Maximum number of results to return (default: 100)
     
     Returns:
         A dictionary containing search results and metadata:
@@ -391,11 +384,11 @@ async def search_entities_tool(query: str, limit: int = 100) -> Dict[str, Any]:
         
     Examples:
         query="temperature" - find temperature entities
-        query="living", limit=10 - find living room entities
-        query="", limit=500 - list all entity types
+        query="living" - find living room entities
+        query="" - list all entity types
         
     """
-    logger.info(f"Searching for entities matching: '{query}' with limit: {limit}")
+    logger.info(f"Searching for entities matching: '{query}'")
     
     # Special case - treat "*" as empty query to just return entities without filtering
     if query == "*":
@@ -404,8 +397,8 @@ async def search_entities_tool(query: str, limit: int = 100) -> Dict[str, Any]:
     
     # Handle empty query as a special case to just return entities up to the limit
     if not query or not query.strip():
-        logger.info(f"Empty query - retrieving up to {limit} entities without filtering")
-        entities = await get_entities(limit=limit, lean=True)
+        logger.info(f"Empty query - retrieving entities without filtering")
+        entities = await get_entities(lean=True)
         
         # Check if there was an error
         if isinstance(entities, dict) and "error" in entities:
@@ -455,7 +448,7 @@ async def search_entities_tool(query: str, limit: int = 100) -> Dict[str, Any]:
         }
     
     # Normal search with non-empty query
-    entities = await get_entities(search_query=query, limit=limit, lean=True)
+    entities = await get_entities(search_query=query, lean=True)
     
     # Check if there was an error
     if isinstance(entities, dict) and "error" in entities:
@@ -537,7 +530,7 @@ async def search_entities_resource_with_limit(query: str, limit: str) -> str:
         - Consider domain-specific searches for better precision: "light kitchen" instead of just "kitchen"
     """
     try:
-        limit_int = 100
+        limit_int = int(limit)
         if limit_int <= 0:
             limit_int = 100
     except ValueError:

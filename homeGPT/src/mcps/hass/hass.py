@@ -218,7 +218,6 @@ async def get_entity_state(
 async def get_entities(
     domain: Optional[str] = None, 
     search_query: Optional[str] = None, 
-    limit: int = 100,
     fields: Optional[List[str]] = None,
     lean: bool = True
 ) -> List[Dict[str, Any]]:
@@ -228,7 +227,6 @@ async def get_entities(
     Args:
         domain: Optional domain to filter entities by (e.g., 'light', 'switch')
         search_query: Optional case-insensitive search term to filter by entity_id, friendly_name or other attributes
-        limit: Maximum number of entities to return (default: 100)
         fields: Optional list of specific fields to include in each entity
         lean: If True (default), returns token-efficient versions with minimal fields
     
@@ -277,10 +275,6 @@ async def get_entities(
                         break
         
         entities = filtered_entities
-    
-    # Apply the limit
-    if limit > 0 and len(entities) > limit:
-        entities = entities[:limit]
     
     # Apply field filtering if requested
     if fields:
