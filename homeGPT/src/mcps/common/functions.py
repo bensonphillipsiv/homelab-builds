@@ -4,7 +4,7 @@ import inspect
 import logging
 import asyncio
 from datetime import datetime, timedelta, timezone
-import pytz
+# import pytz
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -55,34 +55,34 @@ def handle_errors(func: F) -> F:
     return cast(F, wrapper)
 
 
-@handle_errors
-async def get_time(
-    timezone_name: Optional[str] = None,
-) -> Dict[str, Any]:
-    """
-    Get the current time for the device's local timezone or a specified timezone
+# @handle_errors
+# async def get_time(
+#     timezone_name: Optional[str] = None,
+# ) -> Dict[str, Any]:
+#     """
+#     Get the current time for the device's local timezone or a specified timezone
     
-    Args:
-        timezone_name: Optional timezone name (e.g., 'US/Eastern', 'Europe/London', 'UTC').
-                      If None, returns the device's local time.
+#     Args:
+#         timezone_name: Optional timezone name (e.g., 'US/Eastern', 'Europe/London', 'UTC').
+#                       If None, returns the device's local time.
     
-    Returns:
-        Dictionary with current time information
-    """
-    if timezone_name is None:
-        now = datetime.now()
-        tz_info = "Local"
-    else:
-        tz = pytz.timezone(timezone_name)
-        now = datetime.now(tz)
-        tz_info = timezone_name
+#     Returns:
+#         Dictionary with current time information
+#     """
+#     if timezone_name is None:
+#         now = datetime.now()
+#         tz_info = "Local"
+#     else:
+#         tz = pytz.timezone(timezone_name)
+#         now = datetime.now(tz)
+#         tz_info = timezone_name
     
-    return {
-        "current_time": now.strftime("%Y-%m-%d %H:%M:%S"),
-        "timezone": tz_info,
-        "iso_format": now.isoformat(),
-        "unix_timestamp": int(now.timestamp())
-    }
+#     return {
+#         "current_time": now.strftime("%Y-%m-%d %H:%M:%S"),
+#         "timezone": tz_info,
+#         "iso_format": now.isoformat(),
+#         "unix_timestamp": int(now.timestamp())
+#     }
 
 
 @handle_errors
