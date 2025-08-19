@@ -22,12 +22,8 @@ from mcp.server.stdio import stdio_server
 import mcp.types as types
 mcp = FastMCP("common_mcp")
 
-# from .functions import (
-#     get_time, set_timer
-# )
-
 from .functions import (
-    set_timer
+    get_time, set_timer
 )
 
 def async_handler(command_type: str):
@@ -45,32 +41,32 @@ def async_handler(command_type: str):
         return cast(Callable[..., Awaitable[T]], wrapper)
     return decorator
 
-# @mcp.tool()
-# @async_handler("get_time")
-# async def get_time_tool(timezone_name: Optional[str] = None) -> dict:
-#     """
-#     Get the time in the local or specified timezone
+@mcp.tool()
+@async_handler("get_time")
+async def get_time_tool(timezone_name: Optional[str] = None) -> dict:
+    """
+    Get the time in the local or specified timezone
     
-#     Args:
-#         timezone: Optional timezone name (e.g., "America/New_York"). If None, uses local timezone.
+    Args:
+        timezone: Optional timezone name (e.g., "America/New_York"). If None, uses local timezone.
 
-#     Returns:
-#         A dictionary with the current time in the specified timezone.
+    Returns:
+        A dictionary with the current time in the specified timezone.
     
-#     Examples:
-#         timezone="America/New_York" - returns current time in New York
-#         timezone=None - returns current local time
+    Examples:
+        timezone="America/New_York" - returns current time in New York
+        timezone=None - returns current local time
 
-#     Best Practices:
-#         - Default to local time if no location is specified
-#         - Use IANA timezone identifiers
-#     """
-#     if timezone_name is None:
-#         logger.info("Getting local time")
-#         return await get_time()
-#     else:
-#         logger.info(f"Getting time for timezone: {timezone_name}")
-#         return await get_time(timezone_name=timezone_name)
+    Best Practices:
+        - Default to local time if no location is specified
+        - Use IANA timezone identifiers
+    """
+    if timezone_name is None:
+        logger.info("Getting local time")
+        return await get_time()
+    else:
+        logger.info(f"Getting time for timezone: {timezone_name}")
+        return await get_time(timezone_name=timezone_name)
 
 @mcp.tool()
 @async_handler("set_timer")
