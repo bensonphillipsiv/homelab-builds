@@ -10,7 +10,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 COPY pyproject.toml uv.lock* ./
-RUN uv sync --locked
+RUN uv sync
 
 COPY src/. .
 
