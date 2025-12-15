@@ -9,7 +9,7 @@ WORKDIR /app
 
 COPY pyproject.toml uv.lock* ./
 
-RUN uv sync --frozen --no-install-project --no-dev
+RUN uv sync --locked
 
 COPY src/. .
 
