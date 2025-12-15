@@ -28,19 +28,17 @@ jobs:
       with:
         context: ./the_block/server
         push: true
+        no-cache: true  # Disable cache
         tags: |
           ghcr.io/${{ github.repository_owner }}/the_block:${{ github.sha }}
           ghcr.io/${{ github.repository_owner }}/the_block:latest
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
 
     - name: Build and push homegpt image
       uses: docker/build-push-action@v5
       with:
         context: ./homeGPT
         push: true
+        no-cache: true  # Disable cache
         tags: |
           ghcr.io/${{ github.repository_owner }}/homegpt:${{ github.sha }}
           ghcr.io/${{ github.repository_owner }}/homegpt:latest
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
