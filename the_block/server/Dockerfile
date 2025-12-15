@@ -1,11 +1,16 @@
-FROM python:3.12-slim AS base
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+WORKDIR /app
+
+COPY pyproject.toml uv.lock* ./
+
+RUN uv sync --frozen --no-install-project --no-dev
 
 COPY src/. .
 
-CMD ["python", "the_block.py"]
+CMD ["uv", "run", "the_block.py"]

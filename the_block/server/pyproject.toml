@@ -1,0 +1,11 @@
+[project]
+name = "the-block"
+version = "0.1.0"
+description = "Motion-controlled Home Assistant interface using MQTT"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "homeassistant-api>=4.0",
+    "paho-mqtt>=2.0",
+    "python-dotenv>=1.0",
+]

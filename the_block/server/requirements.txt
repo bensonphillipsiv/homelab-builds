@@ -1,3 +1,0 @@
-paho-mqtt
-homeassistant-api
-dotenv

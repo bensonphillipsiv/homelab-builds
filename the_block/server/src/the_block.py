@@ -6,6 +6,10 @@ load_dotenv()
 
 SHAKE_COUNT_MAX_N = 10
 ROTATION_COUNT_MAX_N = 10
+MIN_ROT_TIME_S = .5
+ROT_COUNT_N = 5
+
+POS_TIME_S = 0.25
 
 class Block:
     def __init__(self):
@@ -16,16 +20,119 @@ class Block:
         self.last_position = 'z+'
         self.rotation_count = 0
         self.shake_count = 0
-        self.position_last_time = time.time()
-        self.rotation_last_time = time.time()
+        self.last_position_time = time.time()
+        self.last_rotation_time = time.time()
+        self.all_basic_services = self._getAllBasicServices()
 
-    def time(self, type):
-        if type == 'position':
-            self.position_last_time = time.time()
-        elif type == 'rotation':
-            self.rotation_last_time = time.time()
+    def _getAllBasicServices(self):
+        services = []
+        for pos, potential_service in self.navi_json['menu.main'].items():
+            if potential_service.startswith('switch.') or potential_service.startswith('light.'):
+                services.append(potential_service)
+            elif potential_service.startswith('scene.'):
+                for potential_service2 in self.scene_json.get(potential_service, []):
+                    if potential_service2.startswith('switch.') or potential_service.startswith('light.'):
+                        services.append(potential_service2)
+        print("Discovered basic services:" + str(services))
+        return services
+
+    def onMessage(self, client, userdata, message):  
+        mpu_data = json.loads(message.payload.decode("utf-8"))
+        # print(mpu_data)
+
+        if (position := calculate.position(mpu_data)) is not None:
+            if self.positionIsTrigged(position):
+                self.setPosition(position)
+
+        if calculate.shaking(mpu_data):
+            self.processShake(calculate.shaking(mpu_data))
+
+        if (direction := calculate.rotation(self.position, mpu_data)) is not None:
+            if self.rotationIsTriggered(direction):
+                self.setRotation(direction)
+
+    def setPosition(self, position):
+        self.position = position
+        self.last_position = position
+        self.last_position_time = time.time()
+
+        entry = self.getEntry(position)
+        domain = self.getDomain(position)
+
+        if len(entry.split('.')) == 3:
+            print(f"Service selected: {entry}")
+            homeassistant.callService(entry)
+        elif domain == 'scene':
+            print(f"Scene selected: {entry}")
+            self.setScene(entry)
+        elif domain == 'menu':
+            print(f"Menu selected: {entry}")
+            self.menu = entry
+
+    def positionIsTrigged(self, position):
+        if self.last_position == position and self.position != position:
+            if time.time() - self.last_position_time > POS_TIME_S:
+                return True
+        else:
+            self.last_position = position
+            self.last_posistion_time = time.time()
+        
+        return False
     
-    def getService(self, position=None):
+    def rotationIsTriggered(self, direction):
+        enough_time = time.time() - self.last_rotation_time > MIN_ROT_TIME_S
+        
+        if direction == 0 and self.rotation_count != 0 and enough_time:
+           self.rotation_count = self.rotation_count + (-1 if self.rotation_count > 0 else 1)
+        elif direction == 1:
+            self.rotation_count = min(ROTATION_COUNT_MAX_N, self.rotation_count + 1)
+        elif direction == -1:
+            self.rotation_count = max(-ROTATION_COUNT_MAX_N, self.rotation_count - 1)
+
+        crossed_limit = self.rotation_count * direction > ROT_COUNT_N
+        if crossed_limit and enough_time:
+            self.last_rotation_time = time.time()
+            return True
+            
+        return False
+    
+    def setRotation(self, direction):
+        print(f"Rotation detected: {direction} on {self.getEntry()}")
+        if self.getDomain() == 'media_player':
+            if direction == 1:
+                homeassistant.callService(f"{self.getEntry()}.volume_up")
+            else:
+                homeassistant.callService(f"{self.getEntry()}.volume_down")
+        elif self.getDomain() == 'bright':
+            _, action = self.getEntry().split('.', 1)
+            service = f"light.{action}"
+
+            brightness = homeassistant.getEntityState(service).attributes.get("brightness") or 0
+            pct_brightness = int(brightness * 100/255)
+
+            if direction == 1:
+                new_brightness = min(pct_brightness + 10, 100)
+                homeassistant.callService(f"{service}.turn_on", brightness_pct=new_brightness)
+            else:
+                new_brightness = max(pct_brightness - 10, 0)
+                homeassistant.callService(f"{service}.turn_on", brightness_pct=new_brightness)
+
+    def processShake(self, shaking):
+        if shaking:
+            self.shake_count = min(SHAKE_COUNT_MAX_N, self.shake_count + 1)
+
+            if self.shake_count >= SHAKE_COUNT_MAX_N:
+                random_service = random.choice(self.all_basic_services)
+                base, _ = random_service.rsplit('.', 1)
+                toggle_service = f"{base}.toggle"
+
+                print(f"Shaking - random service toggled: {random_service} - menu reset to main")
+                self.menu = "menu.main"
+                homeassistant.callService(toggle_service)
+        else:
+            self.shake_count = max(0, self.shake_count - 1)
+
+    def getEntry(self, position=None):
         if position is None:
             position = self.position
         return self.navi_json.get(self.menu, {}).get(position)
@@ -35,107 +142,21 @@ class Block:
             position = self.position
         return self.navi_json.get(self.menu, {}).get(position).split('.')[0]
     
-    def getScene(self, scene):
-        return self.scene_json.get(scene)
+    def setScene(self, scene):
+        scene_services = self.scene_json.get(scene)
+        if scene_services:
+            for service in scene_services:
+                homeassistant.callService(service)
+        else:
+            print(f"No {scene} found for menu: {self.menu}")
     
-    def setRotationCount(self, val):
-        if val == 0 and self.rotation_count != 0:
-           self.rotation_count = self.rotation_count + (-1 if self.rotation_count > 0 else 1)
-        elif val > 0 and self.rotation_count < ROTATION_COUNT_MAX_N:
-            self.rotation_count += 1
-        elif val < 0 and self.rotation_count > -ROTATION_COUNT_MAX_N:
-            self.rotation_count -= 1
-
-    def setShakeCount(self, val):
-        self.shake_count += val
-        self.shake_count = min(max(self.shake_count, 0), SHAKE_COUNT_MAX_N)
-
-    def setPosition(self, position):
-        if self.getDomain(position) == 'menu':
-            self.menu = self.getService(position)
-        self.position = position
-
-    def setLastPosition(self, last_position):
-        self.last_position = last_position
-        self.position_last_time = time.time()
-
-    def randomService(self):
-        options = [
-            pos for pos, service in self.navi_json[self.menu].items() 
-            if len(service.split('.')) == 3
-        ]
-        if options:
-            random_service = random.choice(options)
-            return random_service
-
-block = Block()
-
-
-def determinePosition(position):
-    service = block.getService(position)
-    domain = block.getDomain(position)
-
-    if len(service.split('.')) == 3:
-        homeassistant.callService(service)
-    elif domain == 'scene':
-        print(f"Scene selected: {service}")
-        determineScene(service)
-    elif domain == 'menu':
-        print(f"Menu selected: {service}")
-    block.setPosition(position)
-
-def determineRotation(value):
-    if block.getDomain() == 'media_player':
-        if value > 1:
-            homeassistant.callService(f"{block.getService()}.volume_up")
-        else:
-            homeassistant.callService(f"{block.getService()}.volume_down")
-    elif block.getDomain() == 'bright':
-        _, action = block.getService().split('.', 1)
-        service = f"light.{action}"
-
-        brightness = homeassistant.getEntityState(service).attributes.get("brightness") or 0
-        pct_brightness = int(brightness * 100/255)
-
-        if value > 1:
-            new_brightness = min(pct_brightness + 10, 100)
-            homeassistant.callService(f"{service}.turn_on", brightness_pct=new_brightness)
-        else:
-            new_brightness = max(pct_brightness - 10, 0)
-            homeassistant.callService(f"{service}.turn_on", brightness_pct=new_brightness)
-
-def determineShake():
-    random_service = block.randomService()
-    if random_service:
-        print("made it")
-        homeassistant.callService(block.getService(random_service))
-    else:
-        print("No valid service found for random selection.")
-
-def onMessage(client, userdata, message):  
-    mpu_data = json.loads(message.payload.decode("utf-8"))
-    print(mpu_data)
-
-    if calculate.shake(block, mpu_data) is not None:
-        print("made it 1")
-        determineShake()
-    if (position := calculate.position(block, mpu_data)) is not None:
-        determinePosition(position)
-    if block.getDomain() == 'media_player' or block.getDomain() == 'bright':
-        if (rotation := calculate.rotation(block, mpu_data)) is not None:
-            determineRotation(rotation)
-
-def determineScene(scene_name):
-    scene = block.getScene(scene_name)
-    if scene:
-        for service in scene:
-            homeassistant.callService(service)
-    else:
-        print(f"No {scene_name} found for menu: {block.menu}")
 
 def main() -> None:
+    homeassistant.start()
+    block = Block()
     client = mqtt5.setupMQTT()
-    client.on_message = onMessage
+    client.on_message = block.onMessage
+    client.loop_forever()
 
 if __name__ == "__main__":
     main()
